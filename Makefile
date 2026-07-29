@@ -1,6 +1,6 @@
 GO ?= go
 
-.PHONY: build vet test race fuzz bench run-collector run-sender demo chart ci clean
+.PHONY: build vet test race fuzz bench run-collector run-sender demo chart ci stack-up stack-down load clean
 
 build:
 	$(GO) build -o bin/ ./cmd/...
@@ -39,6 +39,20 @@ chart: build
 	python3 scripts/render_chart.py
 
 ci: vet race
+
+# Prometheus (:9091) + Grafana (:3000, anonymous) scraping the collector.
+stack-up:
+	docker compose -f deploy/docker-compose.yml up -d
+
+stack-down:
+	docker compose -f deploy/docker-compose.yml down
+
+# 60s of bursty demo traffic for the Grafana dashboard (make stack-up
+# first). Override with: make load DURATION=5m
+load: build
+	DURATION=$(DURATION) ./scripts/demo-load.sh
+
+DURATION ?= 60s
 
 clean:
 	rm -rf bin

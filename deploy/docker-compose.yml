@@ -1,0 +1,30 @@
+# Observability stack for the backpressure demo:
+#   make stack-up   → Prometheus :9091 + Grafana :3000 (anonymous admin)
+#   make stack-down → tear down
+#
+# host network mode: containers share the host netns, so Prometheus can
+# scrape the collector on 127.0.0.1:9090 with zero name-resolution fuss
+# (native docker in WSL2 has no host.docker.internal by default).
+# Prometheus moves to :9091 because the collector owns :9090.
+services:
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    network_mode: host
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.listen-address=:9091
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana-oss:11.4.0
+    network_mode: host
+    environment:
+      # demo convenience: no login wall, 1s refresh allowed
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_DASHBOARDS_MIN_REFRESH_INTERVAL=1s
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/twamp.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro

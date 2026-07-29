@@ -1,0 +1,3 @@
+# Project builds and runs under WSL; keep LF everywhere so Makefiles and
+# shell scripts work even when checked out on Windows.
+* text=auto eol=lf

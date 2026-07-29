@@ -119,6 +119,17 @@ normal lane loses 6,547 (priority protection working), and
 socket-buffer loss during bursts, the exact failure mode the non-blocking
 design keeps out of the app layer.
 
+The same experiment, captured from `/metrics` at 200ms resolution
+(`make chart` regenerates both panels from a live run):
+
+![Cumulative drops per priority lane vs receive rate under burst load](docs/backpressure.svg)
+
+Every burst spike in the lower panel lines up with one staircase step of
+normal-lane drops in the upper panel, while the high-priority line stays
+pinned to the floor — in this capture the normal lane lost ~11k packets,
+the priority lane lost 1. The exact ratio varies run to run (tens to
+thousands to one); the shape never does.
+
 ## Benchmarks
 
 `make bench` on WSL2, i7-13620H, Go 1.26:

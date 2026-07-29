@@ -1,6 +1,6 @@
 GO ?= go
 
-.PHONY: build vet test race fuzz bench run-collector run-sender demo ci clean
+.PHONY: build vet test race fuzz bench run-collector run-sender demo chart ci clean
 
 build:
 	$(GO) build -o bin/ ./cmd/...
@@ -31,6 +31,12 @@ run-sender: build
 # from /metrics once a second.
 demo: build
 	./scripts/demo-backpressure.sh
+
+# Re-run the demo while sampling /metrics at 200ms, then re-render the
+# README chart (docs/backpressure.svg) from the capture.
+chart: build
+	./scripts/demo-capture.sh
+	python3 scripts/render_chart.py
 
 ci: vet race
 

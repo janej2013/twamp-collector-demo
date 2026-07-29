@@ -9,12 +9,16 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/janej2013/twamp-collector-demo/internal/aggregator"
+	"github.com/janej2013/twamp-collector-demo/internal/metrics"
 	"github.com/janej2013/twamp-collector-demo/internal/pipeline"
 	"github.com/janej2013/twamp-collector-demo/internal/receiver"
 )
@@ -38,6 +42,7 @@ func run() error {
 		maxBatch      = flag.Int("max-batch", 1000, "aggregator flush size")
 		flushInterval = flag.Duration("flush-interval", 200*time.Millisecond, "aggregator flush interval")
 		drainTimeout  = flag.Duration("drain-timeout", 5*time.Second, "graceful shutdown budget before forcing exit")
+		metricsAddr   = flag.String("metrics-addr", ":9090", "Prometheus /metrics listen address (empty = disabled)")
 	)
 	flag.Parse()
 
@@ -51,11 +56,6 @@ func run() error {
 	defer hardStop()
 
 	pl := pipeline.New(pipeline.Config{HighCap: *highCap, NormalCap: *normalCap, Workers: *workers})
-	out := pl.Run(hardCtx)
-
-	agg := aggregator.New(aggregator.Config{MaxBatch: *maxBatch, FlushInterval: *flushInterval})
-	aggDone := make(chan error, 1)
-	go func() { aggDone <- agg.Run(hardCtx, out) }()
 
 	rcv, err := receiver.New(receiver.Config{
 		Addr: *listen, Readers: *readers, Batch: *readBatch, ForceReadFrom: *forceReadFrom,
@@ -63,9 +63,38 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("bind %s: %w", *listen, err)
 	}
+
+	reg := prometheus.NewRegistry()
+	inst := metrics.Register(reg, metrics.Sources{
+		Received:      rcv.Received,
+		ParseErrors:   rcv.ParseErrors,
+		ReadErrors:    rcv.ReadErrors,
+		DroppedHigh:   pl.DroppedHigh,
+		DroppedNormal: pl.DroppedNormal,
+		Depths:        pl.Depths,
+	})
+	var metricsSrv *http.Server
+	if *metricsAddr != "" {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", metrics.Handler(reg))
+		metricsSrv = &http.Server{Addr: *metricsAddr, Handler: mux}
+		go func() {
+			if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				slog.Error("metrics server failed", "err", err)
+			}
+		}()
+	}
+
+	out := pl.Run(hardCtx)
+	agg := aggregator.New(aggregator.Config{
+		MaxBatch: *maxBatch, FlushInterval: *flushInterval, OnFlush: inst.ObserveFlush,
+	})
+	aggDone := make(chan error, 1)
+	go func() { aggDone <- agg.Run(hardCtx, out) }()
+
 	rcv.Start()
 	slog.Info("collector up", "listen", rcv.LocalAddr().String(),
-		"readers", *readers, "workers", *workers)
+		"readers", *readers, "workers", *workers, "metrics", *metricsAddr)
 
 	<-sigCtx.Done() // 1. SIGINT/SIGTERM received
 	slog.Info("shutting down")
@@ -93,6 +122,14 @@ func run() error {
 		slog.Warn("drain timeout exceeded; forcing stop")
 		hardStop()
 		<-aggDone
+	}
+
+	// 6. Metrics server goes down last so the final counters stay
+	//    scrapeable through the whole drain.
+	if metricsSrv != nil {
+		shutCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = metricsSrv.Shutdown(shutCtx)
 	}
 
 	slog.Info("collector stopped",

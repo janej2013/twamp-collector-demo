@@ -300,6 +300,43 @@ func TestTimerResetAfterSizeFlush(t *testing.T) {
 	h.wait(t)
 }
 
+func TestOnFlushHookObservesEveryFlush(t *testing.T) {
+	var sizes []int
+	clock := newFakeClock()
+	sink := newFakeSink()
+	in := make(chan pipeline.Measurement)
+	done := make(chan error, 1)
+	agg := New(Config{
+		MaxBatch: 2, Clock: clock, Sink: sink,
+		OnFlush: func(size int, took time.Duration) {
+			sizes = append(sizes, size) // aggregator goroutine only; no lock needed
+			if took < 0 {
+				t.Errorf("negative flush duration %v", took)
+			}
+		},
+	})
+	go func() { done <- agg.Run(context.Background(), in) }()
+
+	for i := 0; i < 5; i++ { // 2 size flushes + 1 shutdown flush of the odd item
+		in <- meas(uint32(i), packet.PriorityNormal, time.Millisecond)
+	}
+	close(in)
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("aggregator did not exit")
+	}
+	want := []int{2, 2, 1}
+	if len(sizes) != len(want) {
+		t.Fatalf("observed %v flushes, want %v", sizes, want)
+	}
+	for i := range want {
+		if sizes[i] != want[i] {
+			t.Errorf("flush %d: size %d, want %d", i, sizes[i], want[i])
+		}
+	}
+}
+
 func TestSummaryStats(t *testing.T) {
 	tests := []struct {
 		name string

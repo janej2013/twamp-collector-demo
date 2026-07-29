@@ -50,6 +50,11 @@ type Config struct {
 	FlushInterval time.Duration // flush at least this often (default 200ms)
 	Clock         Clock         // injected for tests; defaults to RealClock
 	Sink          Sink          // defaults to JSON lines on stdout
+
+	// OnFlush, when set, observes every flush (batch size and duration
+	// including the sink write). A plain func keeps this package free of
+	// any metrics-library dependency.
+	OnFlush func(batchSize int, took time.Duration)
 }
 
 type Aggregator struct {
@@ -57,6 +62,7 @@ type Aggregator struct {
 	interval time.Duration
 	clock    Clock
 	sink     Sink
+	onFlush  func(int, time.Duration)
 
 	// batch and scratchSeqs are reused across flushes (reset to [:0]) so
 	// the steady state allocates nothing per batch.
@@ -82,6 +88,7 @@ func New(cfg Config) *Aggregator {
 		interval: cfg.FlushInterval,
 		clock:    cfg.Clock,
 		sink:     cfg.Sink,
+		onFlush:  cfg.OnFlush,
 		batch:    make([]pipeline.Measurement, 0, cfg.MaxBatch),
 	}
 }
@@ -142,9 +149,13 @@ func (a *Aggregator) flush(ctx context.Context, reason FlushReason) {
 	if len(a.batch) == 0 {
 		return
 	}
+	start := a.clock.Now()
 	stats := a.summarize(reason)
 	if err := a.sink.WriteBatch(ctx, stats); err != nil {
 		slog.Error("sink write failed", "err", err, "count", stats.Count)
+	}
+	if a.onFlush != nil {
+		a.onFlush(stats.Count, a.clock.Now().Sub(start))
 	}
 	a.batch = a.batch[:0]
 }

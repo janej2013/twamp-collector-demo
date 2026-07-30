@@ -9,7 +9,7 @@ METRICS=127.0.0.1:9090
 OUT=${1:-docs/backpressure.csv}
 mkdir -p "$(dirname "$OUT")"
 
-./bin/collector -listen "$LISTEN" -metrics-addr "$METRICS" \
+./bin/collector -listen "$LISTEN" -metrics-addr :9090 \
   -normal-cap 64 -high-cap 16 -workers 1 >/dev/null 2>/dev/null &
 COL=$!
 trap 'kill -TERM $COL 2>/dev/null || true; wait $COL 2>/dev/null || true' EXIT

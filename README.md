@@ -135,11 +135,11 @@ thousands to one); the shape never does.
 For a live view of the same experiment (requires docker):
 
 ```sh
-make stack-up        # Prometheus :9091 + Grafana :3000, dashboard pre-provisioned
+make stack-up        # Prometheus :9091 + Grafana :3300, dashboard pre-provisioned
 make load            # 60s of bursty traffic (make load DURATION=5m for longer)
 ```
 
-Open http://localhost:3000 (anonymous access) — the "TWAMP Collector —
+Open http://localhost:3300 (anonymous access) — the "TWAMP Collector —
 Backpressure Live" dashboard refreshes every second: receive rate, drop
 rate and cumulative drops per priority, lane depth, flush-duration and
 batch-size percentiles. `make stack-down` tears it down.

@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 LISTEN=127.0.0.1:8620
 METRICS=127.0.0.1:9090
 
-./bin/collector -listen "$LISTEN" -metrics-addr "$METRICS" \
+./bin/collector -listen "$LISTEN" -metrics-addr :9090 \
   -normal-cap 64 -high-cap 16 -workers 1 >/dev/null 2>collector-demo.log &
 COL=$!
 trap 'kill -TERM $COL 2>/dev/null || true; wait $COL 2>/dev/null || true' EXIT

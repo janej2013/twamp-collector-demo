@@ -4,7 +4,9 @@ global:
   scrape_interval: 1s
   scrape_timeout: 900ms
 
+# host.docker.internal resolves to the WSL host (host-gateway mapping in
+# docker-compose.yml); the collector must listen on a wildcard address.
 scrape_configs:
   - job_name: twamp-collector
     static_configs:
-      - targets: ["127.0.0.1:9090"]
+      - targets: ["host.docker.internal:9090"]

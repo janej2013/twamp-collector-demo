@@ -46,7 +46,7 @@ verify: build
 
 ci: vet race
 
-# Prometheus (:9091) + Grafana (:3000, anonymous) scraping the collector.
+# Prometheus (:9091) + Grafana (:3300, anonymous) scraping the collector.
 stack-up:
 	docker compose -f deploy/docker-compose.yml up -d
 

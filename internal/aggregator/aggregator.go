@@ -126,11 +126,15 @@ func (a *Aggregator) Run(ctx context.Context, in <-chan pipeline.Measurement) er
 }
 
 // resetTimer restarts a timer that may or may not have fired. The classic
-// trap: if the timer already expired but its tick was not consumed, a
-// bare Reset leaves the stale tick in C and the next select fires
-// immediately — so Stop, drain non-blockingly, then Reset. (Go 1.23+
-// removed the need for the drain by making timer channels unbuffered,
-// but this module's go directive is 1.22, which keeps the old semantics.)
+// trap: before Go 1.23, if the timer had expired but its tick was not
+// consumed, a bare Reset left the stale tick in C and the next select
+// fired immediately — hence Stop, drain non-blockingly, then Reset.
+// This module's go directive (1.25) selects the new runtime semantics,
+// where Reset discards any pending tick and the drain is no longer
+// required — the full pattern is kept anyway: it is what any Timer
+// implementation must tolerate (the test fake models the old, buffered
+// behavior on purpose), and it stays correct if the directive is ever
+// lowered.
 func resetTimer(t Timer, d time.Duration) {
 	if !t.Stop() {
 		select {

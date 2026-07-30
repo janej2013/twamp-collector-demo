@@ -150,15 +150,21 @@ batch-size percentiles. `make stack-down` tears it down.
 
 | Benchmark | ns/op | allocs/op |
 |---|---:|---:|
-| `packet.Unmarshal` | 1.58 | 0 |
-| `packet.Marshal` | 1.47 | 0 |
+| `packet.Unmarshal` | 2.15 | 0 |
+| `packet.Marshal` | 1.89 | 0 |
 | Aggregator throughput (per measurement, incl. flush amortized) | 81–107 | 0 |
 
 Zero allocations on the parse path and through the aggregator's steady
 state (reused batch + scratch buffers); at 50k pps the collector's hot
 path produces no GC pressure at all. The codec numbers are stable across
-runs; the aggregator benchmark is channel-bound (scheduler-sensitive), so
-its ns/op varies by ~25% run to run — hence the range.
+runs (they include the ~0.5 ns `b.Loop` guard that keeps them honest);
+the aggregator benchmark is channel-bound (scheduler-sensitive), so its
+ns/op varies by ~25% run to run — hence the range.
+
+The full verification run — a packet-level loss accounting reconciled
+against the kernel's own `RcvbufErrors` counter, plus the experiment
+where gap detection catches its own priority-reordering bias — is in
+[RESULTS.md](RESULTS.md) (`make verify` reproduces it).
 
 ## What I'd do differently in production
 

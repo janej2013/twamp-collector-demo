@@ -27,9 +27,10 @@ func BenchmarkAggregatorThroughput(b *testing.B) {
 		RxTime: time.Now(),
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		m.Pkt.Seq = uint32(i)
+	seq := uint32(0)
+	for b.Loop() {
+		m.Pkt.Seq = seq
+		seq++
 		in <- m
 	}
 	close(in)

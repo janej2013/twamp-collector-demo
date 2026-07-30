@@ -1,6 +1,6 @@
 GO ?= go
 
-.PHONY: build vet test race fuzz bench run-collector run-sender demo chart ci stack-up stack-down load clean
+.PHONY: build vet test race fuzz bench run-collector run-sender demo chart verify ci stack-up stack-down load clean
 
 build:
 	$(GO) build -o bin/ ./cmd/...
@@ -37,6 +37,12 @@ demo: build
 chart: build
 	./scripts/demo-capture.sh
 	python3 scripts/render_chart.py
+
+# Instrumented verification run: full loss accounting (sender totals,
+# batch gap sums, collector counters, kernel RcvbufErrors delta) from a
+# single run — the numbers RESULTS.md quotes.
+verify: build
+	./scripts/demo-verify.sh
 
 ci: vet race
 

@@ -23,7 +23,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(twamp_received_packets_total[5s])",
+          "expr": "irate(twamp_received_packets_total[15s])",
           "legendFormat": "received"
         }
       ],
@@ -61,7 +61,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(twamp_dropped_packets_total[5s])",
+          "expr": "irate(twamp_dropped_packets_total[15s])",
           "legendFormat": "{{priority}}"
         }
       ],

@@ -15,5 +15,9 @@ trap 'kill -TERM $COL 2>/dev/null || true; wait $COL 2>/dev/null || true' EXIT
 sleep 0.5
 
 echo "sending bursty traffic for $DURATION — watch http://localhost:3300"
+# Bursts 5s apart (not 1s like the terminal demo): at 1s spacing the burst
+# volume dominates the average and the dashboard's rate windows smooth the
+# spikes into a plateau; 5s spacing keeps a visible 30k baseline with a
+# distinct spike per burst, which is the story the dashboard is for.
 ./bin/sender -target 127.0.0.1:8620 -rate 30000 -duration "$DURATION" \
-  -burst-size 200000 -burst-every 1s
+  -burst-size 200000 -burst-every 5s
